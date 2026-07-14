@@ -6,7 +6,7 @@ pkgdesc="Parch Linux Game Hub - gaming environment manager"
 arch=('x86_64')
 url="https://parchlinux.com"
 license=('AGPL3')
-depends=('gtk4' 'libadwaita' 'vte4' 'glib2' 'hicolor-icon-theme' 'curl' 'tar' 'rsvg-convert')
+depends=('gtk4' 'libadwaita' 'vte4' 'glib2' 'hicolor-icon-theme' 'curl' 'tar' 'librsvg')
 makedepends=('cargo' 'glib2-devel')
 source=("$pkgname-$pkgver::git+https://github.com/parchlinux/gamehub.git#tag=v0.1")
 sha256sums=('SKIP')
