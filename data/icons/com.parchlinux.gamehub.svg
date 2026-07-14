@@ -1,0 +1,76 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="parchGradient" x1="12" y1="112" x2="116" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00FF80"/>
+      <stop offset="0.32" stop-color="#0080FF"/>
+      <stop offset="0.58" stop-color="#00EAFF"/>
+      <stop offset="0.8" stop-color="#00A9FF"/>
+      <stop offset="1" stop-color="#00FF95"/>
+    </linearGradient>
+
+    <linearGradient id="glossHighlight" x1="64" y1="36" x2="64" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="shadeBottom" x1="64" y1="78" x2="64" y2="102" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00131A" stop-opacity="0"/>
+      <stop offset="1" stop-color="#00131A" stop-opacity="0.18"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Controller body -->
+  <path d="M32,36
+           L96,36
+           C104.837,36 112,43.163 112,52
+           L113.6,80.8
+           C114.3,93.4 105,102 94,101
+           C86.8,100.3 81.5,96.6 78,90.4
+           L76.2,87.2
+           C73.8,83 69.3,80.4 64,80.4
+           C58.7,80.4 54.2,83 51.8,87.2
+           L50,90.4
+           C46.5,96.6 41.2,100.3 34,101
+           C23,102 13.7,93.4 14.4,80.8
+           L16,52
+           C16,43.163 23.163,36 32,36 Z"
+        fill="url(#parchGradient)"/>
+
+  <!-- Bottom shading for depth -->
+  <path d="M32,36
+           L96,36
+           C104.837,36 112,43.163 112,52
+           L113.6,80.8
+           C114.3,93.4 105,102 94,101
+           C86.8,100.3 81.5,96.6 78,90.4
+           L76.2,87.2
+           C73.8,83 69.3,80.4 64,80.4
+           C58.7,80.4 54.2,83 51.8,87.2
+           L50,90.4
+           C46.5,96.6 41.2,100.3 34,101
+           C23,102 13.7,93.4 14.4,80.8
+           L16,52
+           C16,43.163 23.163,36 32,36 Z"
+        fill="url(#shadeBottom)"/>
+
+  <!-- Glossy top highlight -->
+  <path d="M32,36 L96,36 C104.837,36 112,43.163 112,52 L112,58
+           C112,58 100,48 64,48 C28,48 16,58 16,58 L16,52
+           C16,43.163 23.163,36 32,36 Z"
+        fill="url(#glossHighlight)"/>
+
+  <!-- D-pad -->
+  <g fill="#F3FBFF" fill-opacity="0.92">
+    <rect x="34" y="56" width="8" height="20" rx="2"/>
+    <rect x="28" y="62" width="20" height="8" rx="2"/>
+  </g>
+
+  <!-- Face buttons -->
+  <g fill="#F3FBFF" fill-opacity="0.92">
+    <circle cx="92" cy="58" r="4.5"/>
+    <circle cx="83" cy="67" r="4.5"/>
+    <circle cx="92" cy="76" r="4.5"/>
+    <circle cx="101" cy="67" r="4.5"/>
+  </g>
+</svg>
+

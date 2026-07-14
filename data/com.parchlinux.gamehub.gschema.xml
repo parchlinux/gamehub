@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="com.parchlinux.gamehub" path="/com/parchlinux/gamehub/">
+    <key name="auto-update" type="b">
+      <default>false</default>
+      <summary>Auto-update game launchers</summary>
+      <description>Check for updates on startup</description>
+    </key>
+    <key name="show-notifications" type="b">
+      <default>true</default>
+      <summary>Show notifications</summary>
+      <description>Display system notifications for installs and updates</description>
+    </key>
+    <key name="performance-cpu-governor" type="b">
+      <default>false</default>
+      <summary>Performance CPU Governor</summary>
+      <description>Set CPU to performance mode for gaming</description>
+    </key>
+    <key name="gaming-kernel-parameters" type="b">
+      <default>false</default>
+      <summary>Gaming Kernel Parameters</summary>
+      <description>Apply recommended kernel parameters</description>
+    </key>
+    <key name="esync-fsync" type="b">
+      <default>true</default>
+      <summary>Enable Esync/Fsync</summary>
+      <description>Improve game performance with sync optimizations</description>
+    </key>
+    <key name="welcome-banner-dismissed" type="b">
+      <default>false</default>
+      <summary>Welcome banner dismissed</summary>
+      <description>Whether the welcome banner has been dismissed</description>
+    </key>
+  </schema>
+</schemalist>
