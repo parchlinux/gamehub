@@ -4,6 +4,7 @@ use adw::prelude::*;
 use gtk::glib;
 
 use crate::config::AppConfig;
+use crate::modules::launcher_manager::apply_locale;
 use crate::modules::system_info::{InstalledLauncher, SystemInfo, SystemStatus};
 
 fn cached_icon_path(id: &str) -> Option<PathBuf> {
@@ -240,11 +241,11 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
                     let cmd_btn = cmd.clone();
                     let toast_click = toast_overlay_clone.clone();
                     launch_btn.connect_clicked(move |_| {
-                        std::process::Command::new(&cmd_btn)
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null())
-                            .spawn()
-                            .ok();
+                        let mut child = std::process::Command::new(&cmd_btn);
+                        child.stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null());
+                        apply_locale(&mut child);
+                        child.spawn().ok();
                         let t = adw::Toast::new(&format!("Launching {}...", cmd_btn));
                         toast_click.add_toast(t);
                     });
@@ -252,11 +253,11 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
 
                     let toast_act = toast_overlay_clone.clone();
                     row.connect_activated(move |_| {
-                        std::process::Command::new(&cmd)
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null())
-                            .spawn()
-                            .ok();
+                        let mut child = std::process::Command::new(&cmd);
+                        child.stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null());
+                        apply_locale(&mut child);
+                        child.spawn().ok();
                         let t = adw::Toast::new(&format!("Launching {}...", cmd));
                         toast_act.add_toast(t);
                     });

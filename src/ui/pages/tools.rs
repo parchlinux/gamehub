@@ -1,5 +1,6 @@
 use adw::prelude::*;
 
+use crate::modules::launcher_manager::apply_locale;
 use crate::modules::tool_manager::{ToolCategory, ToolManager};
 use crate::ui::dialogs::terminal;
 
@@ -147,11 +148,11 @@ fn create_chaotic_group(manager: &ToolManager) -> adw::PreferencesGroup {
             .tooltip_text("Launch Parch Repository Manager (mirrorman) to enable Chaotic AUR")
             .build();
         open_btn.connect_clicked(move |_| {
-            std::process::Command::new("mirrorman")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .ok();
+            let mut child = std::process::Command::new("mirrorman");
+            child.stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null());
+            apply_locale(&mut child);
+            child.spawn().ok();
         });
         row.add_suffix(&open_btn);
     } else {
