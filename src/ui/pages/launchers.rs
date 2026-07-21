@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use adw::prelude::*;
 
-use crate::modules::launcher_manager::{LauncherInfo, LauncherManager};
+use crate::modules::launcher_manager::{apply_locale, LauncherInfo, LauncherManager};
 use crate::ui::dialogs::terminal;
 
 pub fn new() -> gtk::Box {
@@ -99,11 +99,11 @@ fn create_launcher_card(info: LauncherInfo, icon_path: Option<PathBuf>) -> gtk::
             .build();
         let cmd = info.command.to_string();
         launch_btn.connect_clicked(move |_| {
-            std::process::Command::new(&cmd)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .ok();
+            let mut child = std::process::Command::new(&cmd);
+            child.stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null());
+            apply_locale(&mut child);
+            child.spawn().ok();
         });
         action_box.append(&launch_btn);
 

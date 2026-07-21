@@ -2,6 +2,8 @@ use adw::prelude::*;
 use std::io::BufRead;
 use std::process::{Command, Stdio};
 
+use crate::modules::launcher_manager::apply_locale;
+
 pub fn show(
     parent: &gtk::Window,
     title: &str,
@@ -97,17 +99,19 @@ pub fn show(
             cmd
         );
 
-        let mut child = match Command::new("/bin/bash")
-            .args(["-c", &wrapped])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-        {
-            Ok(c) => c,
-            Err(e) => {
-                let _ = line_tx.send(format!("Error: {}", e));
-                let _ = done_tx.send(false);
-                return;
+        let mut child = {
+            let mut cmd = Command::new("/bin/bash");
+            cmd.args(["-c", &wrapped])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+            apply_locale(&mut cmd);
+            match cmd.spawn() {
+                Ok(c) => c,
+                Err(e) => {
+                    let _ = line_tx.send(format!("Error: {}", e));
+                    let _ = done_tx.send(false);
+                    return;
+                }
             }
         };
 

@@ -2,6 +2,23 @@ use std::path::PathBuf;
 
 use crate::modules::pacman::PacmanManager;
 
+pub fn apply_locale(cmd: &mut std::process::Command) {
+    if let Ok(val) = std::env::var("LANG") {
+        cmd.env("LANG", val);
+    }
+    if let Ok(val) = std::env::var("LANGUAGE") {
+        let primary = val.split(':').next().filter(|s| !s.is_empty());
+        if let Some(primary) = primary {
+            cmd.env("LANGUAGE", primary);
+        } else {
+            cmd.env_remove("LANGUAGE");
+        }
+    }
+    if let Ok(val) = std::env::var("LC_MESSAGES") {
+        cmd.env("LC_MESSAGES", val);
+    }
+}
+
 pub struct LauncherInfo {
     pub id: String,
     pub name: &'static str,
@@ -154,11 +171,11 @@ impl LauncherManager {
     }
 
     pub fn launch(&self, command: &str) -> bool {
-        std::process::Command::new(command)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .is_ok()
+        let mut cmd = std::process::Command::new(command);
+        cmd.stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        apply_locale(&mut cmd);
+        cmd.spawn().is_ok()
     }
 
     pub fn install_command(&self, launcher_id: &str) -> Option<String> {
