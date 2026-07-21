@@ -117,15 +117,14 @@ pub fn new() -> gtk::Box {
     autostart_btn.connect_clicked(|btn| {
         if let Some(root) = btn.root() {
             if let Some(window) = root.downcast_ref::<gtk::Window>() {
-                let cmd = "mkdir -p ~/.config/autostart && \
-                           cat > ~/.config/autostart/steam-bigpicture.desktop << 'EOF' && \
-                           [Desktop Entry] && \
-                           Type=Application && \
-                           Name=Steam Big Picture && \
-                           Exec=/usr/bin/steam -silent -bigpicture && \
-                           X-GNOME-Autostart-enabled=true && \
-                           EOF && \
-                           echo 'Steam autostart configured'"
+                let cmd = r#"mkdir -p ~/.config/autostart && cat > ~/.config/autostart/steam-bigpicture.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Steam Big Picture
+Exec=/usr/bin/steam -silent -bigpicture
+X-GNOME-Autostart-enabled=true
+EOF
+echo 'Steam autostart configured'"#
                     .to_string();
                 terminal::show(window, "Enable Steam Auto-Start", &cmd, None);
             }

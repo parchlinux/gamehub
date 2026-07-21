@@ -1,4 +1,5 @@
 use std::process::Command;
+use crate::modules::pacman::PacmanManager;
 
 pub struct SystemInfo;
 
@@ -59,9 +60,7 @@ impl SystemInfo {
     }
 
     pub fn check_chaotic_aur(&self) -> bool {
-        std::fs::read_to_string("/etc/pacman.conf")
-            .map(|content| content.contains("[chaotic-aur]"))
-            .unwrap_or(false)
+        PacmanManager::new().check_chaotic_aur()
     }
 
     pub fn gather_all(&self) -> SystemStatus {
@@ -79,6 +78,7 @@ impl SystemInfo {
             ("lutris", "Lutris", "lutris"),
             ("heroic-games-launcher-bin", "Heroic Games Launcher", "heroic"),
             ("bottles", "Bottles", "bottles"),
+            ("minigalaxy", "Minigalaxy", "minigalaxy"),
         ];
 
         launchers

@@ -4,6 +4,7 @@ use adw::prelude::*;
 use gtk::glib;
 
 use crate::config::AppConfig;
+use crate::ui::dialogs::terminal;
 
 pub fn new() -> gtk::Box {
     let config = Rc::new(AppConfig::new());
@@ -86,8 +87,16 @@ pub fn new() -> gtk::Box {
         .active(config.performance_cpu_governor())
         .build();
     let governor_config = Rc::clone(&config);
-    governor_switch.connect_state_set(move |_, state| {
+    governor_switch.connect_state_set(move |switch, state| {
         governor_config.set_performance_cpu_governor(state);
+        if let Some(window) = switch.root().and_then(|r| r.downcast_ref::<gtk::Window>().cloned()) {
+            let cmd = if state {
+                "pkexec bash -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'"
+            } else {
+                "pkexec bash -c 'echo powersave | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'"
+            };
+            terminal::show(&window, "CPU Governor", cmd, None);
+        }
         glib::Propagation::Proceed
     });
     governor_row.add_suffix(&governor_switch);
@@ -104,8 +113,16 @@ pub fn new() -> gtk::Box {
         .active(config.gaming_kernel_parameters())
         .build();
     let kernel_config = Rc::clone(&config);
-    kernel_switch.connect_state_set(move |_, state| {
+    kernel_switch.connect_state_set(move |switch, state| {
         kernel_config.set_gaming_kernel_parameters(state);
+        if let Some(window) = switch.root().and_then(|r| r.downcast_ref::<gtk::Window>().cloned()) {
+            let cmd = if state {
+                "pkexec bash -c 'echo \"vm.max_map_count=2147483642\" > /etc/sysctl.d/99-gaming.conf && sysctl --system'"
+            } else {
+                "pkexec rm -f /etc/sysctl.d/99-gaming.conf && sudo sysctl --system"
+            };
+            terminal::show(&window, "Kernel Parameters", cmd, None);
+        }
         glib::Propagation::Proceed
     });
     kernel_row.add_suffix(&kernel_switch);
@@ -122,8 +139,16 @@ pub fn new() -> gtk::Box {
         .active(config.esync_fsync())
         .build();
     let sync_config = Rc::clone(&config);
-    sync_switch.connect_state_set(move |_, state| {
+    sync_switch.connect_state_set(move |switch, state| {
         sync_config.set_esync_fsync(state);
+        if let Some(window) = switch.root().and_then(|r| r.downcast_ref::<gtk::Window>().cloned()) {
+            let cmd = if state {
+                "pkexec bash -c 'echo \"* hard nofile 1048576\" >> /etc/security/limits.d/99-esync.conf && echo \"* soft nofile 1048576\" >> /etc/security/limits.d/99-esync.conf'"
+            } else {
+                "pkexec rm -f /etc/security/limits.d/99-esync.conf"
+            };
+            terminal::show(&window, "Esync/Fsync", cmd, None);
+        }
         glib::Propagation::Proceed
     });
     sync_row.add_suffix(&sync_switch);
@@ -139,7 +164,7 @@ pub fn new() -> gtk::Box {
 
     let app_row = adw::ActionRow::builder()
         .title("Parch Linux Gamehub")
-        .subtitle("Version 0.1.0")
+        .subtitle("Version 0.1.1")
         .build();
     app_row.add_prefix(&gtk::Image::from_icon_name("applications-games"));
     about_group.add(&app_row);

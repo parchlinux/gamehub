@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use adw::prelude::*;
 use gtk::glib;
@@ -189,7 +190,7 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
         tx.send((status, launchers)).ok();
     });
 
-    glib::idle_add_local(move || {
+    glib::timeout_add_local(Duration::from_millis(100), move || {
         if let Ok((status, launchers)) = rx.try_recv() {
             gpu_row.set_subtitle(&status.gpu);
             driver_row.set_subtitle(&status.driver);

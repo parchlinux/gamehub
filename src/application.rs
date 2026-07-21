@@ -22,6 +22,15 @@ pub fn run() {
 }
 
 fn setup_actions(app: &adw::Application) {
+    let quit_action = gio::SimpleAction::new("quit", None);
+    let app_weak = app.downgrade();
+    quit_action.connect_activate(move |_, _| {
+        if let Some(app) = app_weak.upgrade() {
+            app.quit();
+        }
+    });
+    app.add_action(&quit_action);
+
     let about_action = gio::SimpleAction::new("about", None);
     let app_weak = app.downgrade();
     about_action.connect_activate(move |_, _| {
@@ -47,7 +56,7 @@ fn show_about(app: &adw::Application) {
     let about = adw::AboutDialog::builder()
         .application_name("Parch Linux Gamehub")
         .application_icon("com.parchlinux.gamehub")
-        .version("0.1.0")
+        .version("0.1.1")
         .developers(["Parch Linux"])
         .website("https://parchlinux.com")
         .copyright("© 2026 Parch Linux")
