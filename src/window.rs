@@ -1,4 +1,6 @@
 use adw::prelude::*;
+use gtk::glib;
+use gtk::gio;
 
 use crate::ui::pages;
 
@@ -61,6 +63,14 @@ pub fn create(app: &adw::Application) -> adw::ApplicationWindow {
         .title("Parch Linux Gamehub")
         .content(&main_box)
         .build();
+
+    let app_weak = app.downgrade();
+    window.connect_close_request(move |_| {
+        if let Some(app) = app_weak.upgrade() {
+            app.quit();
+        }
+        glib::Propagation::Proceed
+    });
 
     window
 }

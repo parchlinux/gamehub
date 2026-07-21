@@ -9,6 +9,7 @@ pub struct CompatTool {
     pub asset_filter: &'static str,
     pub arch_filter: Option<&'static str>,
     pub install_subdir: &'static str,
+    pub match_fn: fn(&str) -> bool,
 }
 
 #[derive(Clone)]
@@ -41,15 +42,17 @@ impl ProtonManager {
                 asset_filter: r"GE-Proton.*\.tar\.gz",
                 arch_filter: None,
                 install_subdir: "compatibilitytools.d",
+                match_fn: |n| n.starts_with("GE-Proton") && !n.to_lowercase().contains("rtsp"),
             },
             CompatTool {
                 id: "proton-cachyos",
                 name: "Proton-CachyOS",
                 description: "Proton optimized by CachyOS with additional patches",
                 repo: "CachyOS/proton-cachyos",
-                asset_filter: r"proton-cachyos.*\.tar\.zst",
-                arch_filter: Some("x86_64"),
+                asset_filter: r"proton-cachyos.*\.tar\.(?:xz|zst)",
+                arch_filter: Some("-x86_64.tar"),
                 install_subdir: "compatibilitytools.d",
+                match_fn: |n| n.starts_with("proton-cachyos"),
             },
             CompatTool {
                 id: "ge-proton-rtsp",
@@ -59,6 +62,10 @@ impl ProtonManager {
                 asset_filter: r"GE-Proton.*\.tar\.gz",
                 arch_filter: None,
                 install_subdir: "compatibilitytools.d",
+                match_fn: |n| {
+                    let lower = n.to_lowercase();
+                    lower.contains("ge-proton") && lower.contains("rtsp")
+                },
             },
             CompatTool {
                 id: "dxvk",
@@ -68,6 +75,7 @@ impl ProtonManager {
                 asset_filter: r"dxvk-.*\.tar\.gz",
                 arch_filter: None,
                 install_subdir: "",
+                match_fn: |n| n.starts_with("dxvk-"),
             },
             CompatTool {
                 id: "vkd3d-proton",
@@ -77,6 +85,7 @@ impl ProtonManager {
                 asset_filter: r"vkd3d-proton-.*\.tar\.zst",
                 arch_filter: None,
                 install_subdir: "",
+                match_fn: |n| n.starts_with("vkd3d-proton-"),
             },
         ]
     }
@@ -113,7 +122,7 @@ impl ProtonManager {
         let url = format!("https://api.github.com/repos/{}/releases?per_page=30", tool.repo);
         let output = std::process::Command::new("curl")
             .args([
-                "-fsSL",
+                "-sSL",
                 "-A",
                 "Mozilla/5.0 (X11; Linux x86_64) gamehub",
                 "--max-time",
@@ -124,7 +133,7 @@ impl ProtonManager {
             .ok();
 
         let body = match output {
-            Some(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+            Some(o) => String::from_utf8_lossy(&o.stdout).to_string(),
             _ => return vec![],
         };
 
@@ -161,6 +170,14 @@ impl ProtonManager {
                     });
                     break;
                 }
+            }
+        }
+
+        if result.is_empty() && !body.is_empty() {
+            if body.contains("API rate limit") || body.contains("rate limit") {
+                eprintln!("GitHub API rate limit exceeded: {}", body);
+            } else {
+                eprintln!("No releases parsed. Response: {}", body);
             }
         }
 
@@ -203,7 +220,7 @@ impl ProtonManager {
                         .and_then(|n| n.to_str())
                         .unwrap_or("")
                         .to_string();
-                    if name.contains(tool.id.strip_prefix("ge-").unwrap_or(tool.id)) {
+                    if (tool.match_fn)(&name) {
                         result.push(InstalledVersion {
                             version: name,
                             path,
