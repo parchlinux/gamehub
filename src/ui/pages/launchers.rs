@@ -145,6 +145,12 @@ fn create_launcher_card<F: Fn() + Clone + 'static>(
         .lines(2)
         .build();
 
+    let status_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(6)
+        .halign(gtk::Align::Center)
+        .build();
+
     let status_label = gtk::Label::builder()
         .label(if installed {
             "Installed"
@@ -153,6 +159,15 @@ fn create_launcher_card<F: Fn() + Clone + 'static>(
         })
         .css_classes(["caption"])
         .build();
+    status_box.append(&status_label);
+
+    if info.chaotic_aur {
+        let chaotic_badge = gtk::Label::builder()
+            .label("Chaotic-AUR")
+            .css_classes(["caption", "accent"])
+            .build();
+        status_box.append(&chaotic_badge);
+    }
 
     let action_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -214,9 +229,15 @@ fn create_launcher_card<F: Fn() + Clone + 'static>(
         let install_cmd = crate::modules::pacman::PacmanManager::install_command(&pkg_list);
         let install_title = info.name.to_string();
         let refresh = on_refresh.clone();
+        let is_chaotic = info.chaotic_aur;
+        let item_name = info.name.to_string();
         install_btn.connect_clicked(move |btn| {
             if let Some(root) = btn.root() {
                 if let Some(window) = root.downcast_ref::<gtk::Window>() {
+                    if is_chaotic && !crate::modules::pacman::PacmanManager::new().check_chaotic_aur() {
+                        crate::ui::dialogs::chaotic::prompt_chaotic_aur(window, &item_name);
+                        return;
+                    }
                     let ref_cb = refresh.clone();
                     terminal::show(
                         window,
@@ -247,7 +268,7 @@ fn create_launcher_card<F: Fn() + Clone + 'static>(
     inner.append(&icon);
     inner.append(&name_label);
     inner.append(&desc_label);
-    inner.append(&status_label);
+    inner.append(&status_box);
     inner.append(&action_box);
 
     let card = gtk::Box::builder()

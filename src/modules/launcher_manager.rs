@@ -27,6 +27,7 @@ pub struct LauncherInfo {
     pub command: &'static str,
     pub icon_url: &'static str,
     pub description: &'static str,
+    pub chaotic_aur: bool,
 }
 
 pub struct LauncherManager {
@@ -50,10 +51,11 @@ impl LauncherManager {
             LauncherInfo {
                 id: "steam".into(),
                 name: "Steam",
-                packages: &["steam", "steam-native-runtime"],
+                packages: &["steam"],
                 command: "steam",
                 icon_url: "https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg",
                 description: "The ultimate entertainment platform",
+                chaotic_aur: false,
             },
             LauncherInfo {
                 id: "lutris".into(),
@@ -62,6 +64,7 @@ impl LauncherManager {
                 command: "lutris",
                 icon_url: "https://raw.githubusercontent.com/lutris/lutris/master/share/icons/hicolor/128x128/apps/net.lutris.Lutris.png",
                 description: "Open source gaming platform",
+                chaotic_aur: false,
             },
             LauncherInfo {
                 id: "heroic-games-launcher-bin".into(),
@@ -70,6 +73,7 @@ impl LauncherManager {
                 command: "heroic",
                 icon_url: "https://raw.githubusercontent.com/Heroic-Games-Launcher/HeroicGamesLauncher/main/flatpak/com.heroicgameslauncher.hgl.png",
                 description: "Epic Games, GOG, and Amazon Games launcher",
+                chaotic_aur: true,
             },
             LauncherInfo {
                 id: "bottles".into(),
@@ -78,6 +82,7 @@ impl LauncherManager {
                 command: "bottles",
                 icon_url: "https://raw.githubusercontent.com/bottlesdevs/Bottles/main/data/icons/hicolor/scalable/apps/com.usebottles.bottles.svg",
                 description: "Run Windows software and games",
+                chaotic_aur: true,
             },
             LauncherInfo {
                 id: "minigalaxy".into(),
@@ -86,6 +91,7 @@ impl LauncherManager {
                 command: "minigalaxy",
                 icon_url: "https://raw.githubusercontent.com/sharkwouter/minigalaxy/master/data/icons/128x128/io.github.sharkwouter.Minigalaxy.png",
                 description: "Simple GOG client",
+                chaotic_aur: true,
             },
             LauncherInfo {
                 id: "retroarch".into(),
@@ -94,6 +100,7 @@ impl LauncherManager {
                 command: "retroarch",
                 icon_url: "https://raw.githubusercontent.com/libretro/RetroArch/master/media/icons/128x128/retroarch.png",
                 description: "Cross-platform multi-system emulation game engine",
+                chaotic_aur: false,
             },
             LauncherInfo {
                 id: "prismlauncher".into(),
@@ -102,6 +109,7 @@ impl LauncherManager {
                 command: "prismlauncher",
                 icon_url: "https://raw.githubusercontent.com/PrismLauncher/PrismLauncher/develop/launcher/resources/multimc/128x128/apps/org.prismlauncher.PrismLauncher.png",
                 description: "Modern open source Minecraft launcher and engine",
+                chaotic_aur: false,
             },
             LauncherInfo {
                 id: "cartridges".into(),
@@ -110,6 +118,7 @@ impl LauncherManager {
                 command: "cartridges",
                 icon_url: "https://raw.githubusercontent.com/kirbyfan64/cartridges/main/data/icons/page.kramo.Cartridges.svg",
                 description: "Unified game library for all your launchers",
+                chaotic_aur: false,
             },
             LauncherInfo {
                 id: "parchdroid".into(),
@@ -118,14 +127,16 @@ impl LauncherManager {
                 command: "parchdroid",
                 icon_url: "https://raw.githubusercontent.com/parchlinux/parchdroid/main/data/icons/com.parchlinux.parchdroid.svg",
                 description: "Android game and application manager for Parch Linux",
+                chaotic_aur: false,
             },
             LauncherInfo {
-                id: "itch-bin".into(),
+                id: "itch-setup-bin".into(),
                 name: "itch.io",
-                packages: &["itch-bin"],
-                command: "itch",
+                packages: &["itch-setup-bin"],
+                command: "itch-setup",
                 icon_url: "https://raw.githubusercontent.com/itchio/itch/master/release/resources/itch.png",
                 description: "Indie game marketplace and launcher",
+                chaotic_aur: true,
             },
         ]
     }
@@ -163,8 +174,9 @@ impl LauncherManager {
         let icon_path = self.cache_dir.join(format!("{}.png", id));
         let tmp_path = self.cache_dir.join(format!("{}.tmp", id));
 
+        let user_agent = format!("ParchGameHub/{}", env!("CARGO_PKG_VERSION"));
         let resp = ureq::get(icon_url)
-            .set("User-Agent", "ParchGameHub/0.2.0")
+            .set("User-Agent", &user_agent)
             .timeout(std::time::Duration::from_secs(8))
             .call()
             .ok()?;

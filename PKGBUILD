@@ -1,6 +1,6 @@
 # Maintainer: Parch Linux
 pkgname=gamehub
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="Parch Linux Game Hub - gaming environment manager"
 arch=('x86_64')

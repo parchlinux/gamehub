@@ -168,8 +168,9 @@ impl ProtonManager {
         } else {
             // 2. Fetch from GitHub API via native ureq
             let url = format!("https://api.github.com/repos/{}/releases?per_page=30", tool.repo);
+            let user_agent = format!("ParchGameHub/{} (+https://github.com/parchlinux)", env!("CARGO_PKG_VERSION"));
             let mut req = ureq::get(&url)
-                .set("User-Agent", "ParchGameHub/0.2.0 (+https://github.com/parchlinux)")
+                .set("User-Agent", &user_agent)
                 .timeout(Duration::from_secs(12));
 
             // Optional token support to avoid unauthenticated rate limits if configured

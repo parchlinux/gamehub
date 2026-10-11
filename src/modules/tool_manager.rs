@@ -6,6 +6,7 @@ pub struct ToolInfo {
     pub packages: &'static [&'static str],
     pub description: &'static str,
     pub category: ToolCategory,
+    pub chaotic_aur: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -38,6 +39,7 @@ impl ToolManager {
                 packages: &["pdm"],
                 description: "Detect, configure, and manage hardware and GPU drivers",
                 category: ToolCategory::DriverKernel,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "parch-kernel-manager".into(),
@@ -45,6 +47,7 @@ impl ToolManager {
                 packages: &["parch-kernel-manager"],
                 description: "Manage, install, and switch Linux kernels on Parch Linux",
                 category: ToolCategory::DriverKernel,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "vulkan-radeon".into(),
@@ -52,13 +55,7 @@ impl ToolManager {
                 packages: &["vulkan-radeon", "lib32-vulkan-radeon"],
                 description: "High-performance open source AMD Vulkan driver (recommended)",
                 category: ToolCategory::DriverKernel,
-            },
-            ToolInfo {
-                id: "amdvlk".into(),
-                name: "AMD AMDVLK Vulkan",
-                packages: &["amdvlk", "lib32-amdvlk"],
-                description: "AMD official open-source Vulkan driver",
-                category: ToolCategory::DriverKernel,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "nvidia-utils".into(),
@@ -66,6 +63,7 @@ impl ToolManager {
                 packages: &["nvidia-utils", "lib32-nvidia-utils"],
                 description: "NVIDIA proprietary Vulkan and OpenGL driver utilities",
                 category: ToolCategory::DriverKernel,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "vulkan-intel".into(),
@@ -73,6 +71,7 @@ impl ToolManager {
                 packages: &["vulkan-intel", "lib32-vulkan-intel"],
                 description: "Vulkan driver for Intel Arc, Xe, and HD/UHD graphics",
                 category: ToolCategory::DriverKernel,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "linux-zen".into(),
@@ -80,6 +79,7 @@ impl ToolManager {
                 packages: &["linux-zen", "linux-zen-headers"],
                 description: "Desktop and gaming responsiveness tuned kernel",
                 category: ToolCategory::DriverKernel,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "linux-cachyos".into(),
@@ -87,6 +87,7 @@ impl ToolManager {
                 packages: &["linux-cachyos", "linux-cachyos-headers"],
                 description: "Performance gaming kernel with BORE scheduler and patches",
                 category: ToolCategory::DriverKernel,
+                chaotic_aur: true,
             },
 
             // Wine and Compatibility
@@ -96,20 +97,7 @@ impl ToolManager {
                 packages: &["wine"],
                 description: "Run Windows applications on Linux",
                 category: ToolCategory::WineCompatibility,
-            },
-            ToolInfo {
-                id: "proton-ge-custom-bin".into(),
-                name: "Proton-GE",
-                packages: &["proton-ge-custom-bin"],
-                description: "Custom Proton build for better game compatibility",
-                category: ToolCategory::WineCompatibility,
-            },
-            ToolInfo {
-                id: "wine-ge-custom".into(),
-                name: "Wine-GE",
-                packages: &["wine-ge-custom"],
-                description: "GloriousEggroll's Wine build",
-                category: ToolCategory::WineCompatibility,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "winetricks".into(),
@@ -117,6 +105,15 @@ impl ToolManager {
                 packages: &["winetricks"],
                 description: "Install Windows components in Wine",
                 category: ToolCategory::WineCompatibility,
+                chaotic_aur: false,
+            },
+            ToolInfo {
+                id: "protontricks".into(),
+                name: "Protontricks",
+                packages: &["protontricks"],
+                description: "Simple wrapper to run Winetricks commands for Steam Play/Proton games",
+                category: ToolCategory::WineCompatibility,
+                chaotic_aur: false,
             },
 
             // Performance
@@ -126,6 +123,7 @@ impl ToolManager {
                 packages: &["mangohud"],
                 description: "Vulkan and OpenGL overlay for monitoring FPS, CPU, GPU",
                 category: ToolCategory::Performance,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "gamemode".into(),
@@ -133,6 +131,15 @@ impl ToolManager {
                 packages: &["gamemode", "lib32-gamemode"],
                 description: "Optimize system performance for gaming",
                 category: ToolCategory::Performance,
+                chaotic_aur: false,
+            },
+            ToolInfo {
+                id: "gamescope".into(),
+                name: "Gamescope",
+                packages: &["gamescope"],
+                description: "SteamOS micro-compositor for resolution upscaling and HDR",
+                category: ToolCategory::Performance,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "goverlay".into(),
@@ -140,6 +147,7 @@ impl ToolManager {
                 packages: &["goverlay"],
                 description: "Graphical UI to configure MangoHud",
                 category: ToolCategory::Performance,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "corectrl".into(),
@@ -147,6 +155,7 @@ impl ToolManager {
                 packages: &["corectrl"],
                 description: "Control your CPU and GPU for better performance",
                 category: ToolCategory::Performance,
+                chaotic_aur: false,
             },
 
             // Additional and Hardware
@@ -156,6 +165,7 @@ impl ToolManager {
                 packages: &["openrgb"],
                 description: "RGB lighting control for gaming peripherals and motherboards",
                 category: ToolCategory::Additional,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "piper".into(),
@@ -163,6 +173,7 @@ impl ToolManager {
                 packages: &["piper"],
                 description: "GTK application to configure gaming mice (DPI, buttons)",
                 category: ToolCategory::Additional,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "discord".into(),
@@ -170,6 +181,7 @@ impl ToolManager {
                 packages: &["discord"],
                 description: "Voice and text chat for gamers",
                 category: ToolCategory::Additional,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "obs-studio".into(),
@@ -177,6 +189,7 @@ impl ToolManager {
                 packages: &["obs-studio"],
                 description: "Stream and record your gameplay",
                 category: ToolCategory::Additional,
+                chaotic_aur: false,
             },
             ToolInfo {
                 id: "protonup-qt".into(),
@@ -184,6 +197,7 @@ impl ToolManager {
                 packages: &["protonup-qt"],
                 description: "Install and manage Proton-GE versions",
                 category: ToolCategory::Additional,
+                chaotic_aur: true,
             },
         ]
     }

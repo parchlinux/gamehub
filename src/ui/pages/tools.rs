@@ -200,9 +200,20 @@ fn create_tool_category_group<F: Fn() + Clone + 'static>(
 
         let installed = manager.is_installed(&tool.id);
 
-        if installed {
-            row.set_subtitle(&format!("{} • Installed", tool.description));
+        let subtitle_text = if installed {
+            if tool.chaotic_aur {
+                format!("{} • Installed [Chaotic-AUR]", tool.description)
+            } else {
+                format!("{} • Installed", tool.description)
+            }
+        } else if tool.chaotic_aur {
+            format!("{} • [Chaotic-AUR]", tool.description)
+        } else {
+            tool.description.to_string()
+        };
+        row.set_subtitle(&subtitle_text);
 
+        if installed {
             let launch_cmd = match tool.id.as_str() {
                 "parch-driver-manager" => Some("parch-driver-manager"),
                 "parch-kernel-manager" => Some("parch-kernel-manager"),
@@ -272,9 +283,15 @@ fn create_tool_category_group<F: Fn() + Clone + 'static>(
             let cmd = crate::modules::pacman::PacmanManager::install_command(&pkg_list);
             let title = tool.name.to_string();
             let refresh = on_refresh.clone();
+            let is_chaotic = tool.chaotic_aur;
+            let item_name = tool.name.to_string();
             install_btn.connect_clicked(move |btn| {
                 if let Some(root) = btn.root() {
                     if let Some(window) = root.downcast_ref::<gtk::Window>() {
+                        if is_chaotic && !crate::modules::pacman::PacmanManager::new().check_chaotic_aur() {
+                            crate::ui::dialogs::chaotic::prompt_chaotic_aur(window, &item_name);
+                            return;
+                        }
                         let ref_cb = refresh.clone();
                         terminal::show(
                             window,
