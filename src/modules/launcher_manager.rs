@@ -19,6 +19,7 @@ pub fn apply_locale(cmd: &mut std::process::Command) {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct LauncherInfo {
     pub id: String,
     pub name: &'static str,
@@ -86,42 +87,102 @@ impl LauncherManager {
                 icon_url: "https://raw.githubusercontent.com/sharkwouter/minigalaxy/master/data/icons/128x128/io.github.sharkwouter.Minigalaxy.png",
                 description: "Simple GOG client",
             },
+            LauncherInfo {
+                id: "retroarch".into(),
+                name: "RetroArch",
+                packages: &["retroarch"],
+                command: "retroarch",
+                icon_url: "https://raw.githubusercontent.com/libretro/RetroArch/master/media/icons/128x128/retroarch.png",
+                description: "Cross-platform multi-system emulation game engine",
+            },
+            LauncherInfo {
+                id: "prismlauncher".into(),
+                name: "Prism Launcher",
+                packages: &["prismlauncher"],
+                command: "prismlauncher",
+                icon_url: "https://raw.githubusercontent.com/PrismLauncher/PrismLauncher/develop/launcher/resources/multimc/128x128/apps/org.prismlauncher.PrismLauncher.png",
+                description: "Modern open source Minecraft launcher and engine",
+            },
+            LauncherInfo {
+                id: "cartridges".into(),
+                name: "Cartridges",
+                packages: &["cartridges"],
+                command: "cartridges",
+                icon_url: "https://raw.githubusercontent.com/kirbyfan64/cartridges/main/data/icons/page.kramo.Cartridges.svg",
+                description: "Unified game library for all your launchers",
+            },
+            LauncherInfo {
+                id: "parchdroid".into(),
+                name: "Parchdroid",
+                packages: &["parchdroid"],
+                command: "parchdroid",
+                icon_url: "https://raw.githubusercontent.com/parchlinux/parchdroid/main/data/icons/com.parchlinux.parchdroid.svg",
+                description: "Android game and application manager for Parch Linux",
+            },
+            LauncherInfo {
+                id: "itch-bin".into(),
+                name: "itch.io",
+                packages: &["itch-bin"],
+                command: "itch",
+                icon_url: "https://raw.githubusercontent.com/itchio/itch/master/release/resources/itch.png",
+                description: "Indie game marketplace and launcher",
+            },
         ]
     }
 
-    pub fn cached_icon_path(&self, info: &LauncherInfo) -> Option<PathBuf> {
-        let icon_path = self.cache_dir.join(format!("{}.png", info.id));
-        if icon_path.exists() {
-            return Some(icon_path);
+    pub fn existing_icon_path(&self, id: &str) -> Option<PathBuf> {
+        let cached = self.cache_dir.join(format!("{}.png", id));
+        if cached.exists() {
+            return Some(cached);
         }
 
-        let tmp_path = self.cache_dir.join(format!("{}.tmp", info.id));
+        // Check system local icons
+        let system_paths = [
+            format!("/usr/share/icons/hicolor/scalable/apps/com.parchlinux.{}.svg", id),
+            format!("/usr/share/icons/hicolor/scalable/apps/{}.svg", id),
+            format!("/usr/share/icons/hicolor/128x128/apps/{}.png", id),
+            format!("/usr/share/pixmaps/{}.png", id),
+            format!("/usr/share/pixmaps/{}.svg", id),
+        ];
 
-        let ok = std::process::Command::new("curl")
-            .args([
-                "-fsSL",
-                "-A",
-                "Mozilla/5.0 (X11; Linux x86_64)",
-                "-o",
-                &tmp_path.to_string_lossy(),
-                info.icon_url,
-                "--max-time",
-                "10",
-            ])
-            .status()
-            .ok()
-            .map(|s| s.success())
-            .unwrap_or(false);
+        for path_str in system_paths {
+            let p = PathBuf::from(path_str);
+            if p.exists() {
+                return Some(p);
+            }
+        }
 
-        if !ok || !tmp_path.exists() {
-            let _ = std::fs::remove_file(&tmp_path);
+        None
+    }
+
+    pub fn download_icon_by_url(&self, id: &str, icon_url: &str) -> Option<PathBuf> {
+        if let Some(existing) = self.existing_icon_path(id) {
+            return Some(existing);
+        }
+
+        let icon_path = self.cache_dir.join(format!("{}.png", id));
+        let tmp_path = self.cache_dir.join(format!("{}.tmp", id));
+
+        let resp = ureq::get(icon_url)
+            .set("User-Agent", "ParchGameHub/0.2.0")
+            .timeout(std::time::Duration::from_secs(8))
+            .call()
+            .ok()?;
+
+        if resp.status() != 200 {
             return None;
         }
 
-        let is_svg = std::fs::read(&tmp_path)
-            .ok()
-            .map(|bytes| bytes.starts_with(b"<svg") || bytes.starts_with(b"<?xml"))
-            .unwrap_or(false);
+        let mut bytes = Vec::new();
+        if std::io::Read::read_to_end(&mut resp.into_reader(), &mut bytes).is_err() {
+            return None;
+        }
+
+        if std::fs::write(&tmp_path, &bytes).is_err() {
+            return None;
+        }
+
+        let is_svg = bytes.starts_with(b"<svg") || bytes.starts_with(b"<?xml");
 
         if is_svg {
             let converted = std::process::Command::new("rsvg-convert")
@@ -154,6 +215,12 @@ impl LauncherManager {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn cached_icon_path(&self, info: &LauncherInfo) -> Option<PathBuf> {
+        self.existing_icon_path(&info.id)
+            .or_else(|| self.download_icon_by_url(&info.id, info.icon_url))
+    }
+
     pub fn is_installed(&self, launcher_id: &str) -> bool {
         let launchers = self.all_launchers();
         if let Some(info) = launchers.iter().find(|l| l.id == launcher_id) {
@@ -163,6 +230,7 @@ impl LauncherManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_installed(&self) -> Vec<LauncherInfo> {
         self.all_launchers()
             .into_iter()
@@ -170,6 +238,7 @@ impl LauncherManager {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn launch(&self, command: &str) -> bool {
         let mut cmd = std::process::Command::new(command);
         cmd.stdout(std::process::Stdio::null())
@@ -178,6 +247,7 @@ impl LauncherManager {
         cmd.spawn().is_ok()
     }
 
+    #[allow(dead_code)]
     pub fn install_command(&self, launcher_id: &str) -> Option<String> {
         let launchers = self.all_launchers();
         launchers
@@ -189,6 +259,7 @@ impl LauncherManager {
             })
     }
 
+    #[allow(dead_code)]
     pub fn remove_command(&self, launcher_id: &str) -> Option<String> {
         let launchers = self.all_launchers();
         launchers
@@ -200,6 +271,7 @@ impl LauncherManager {
             })
     }
 
+    #[allow(dead_code)]
     pub fn get_version(&self, launcher_id: &str) -> Option<String> {
         let launchers = self.all_launchers();
         launchers

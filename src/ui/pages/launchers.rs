@@ -1,13 +1,10 @@
-use std::path::PathBuf;
-
 use adw::prelude::*;
+use gtk::glib;
 
 use crate::modules::launcher_manager::{apply_locale, LauncherInfo, LauncherManager};
 use crate::ui::dialogs::terminal;
 
 pub fn new() -> gtk::Box {
-    let manager = LauncherManager::new();
-
     let scroll = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
         .vexpand(true)
@@ -18,6 +15,19 @@ pub fn new() -> gtk::Box {
         .tightening_threshold(600)
         .build();
 
+    let page_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(8)
+        .build();
+
+    let search_entry = gtk::SearchEntry::builder()
+        .placeholder_text("Search launchers and engines (Steam, RetroArch, Prism, Heroic)...")
+        .margin_top(16)
+        .margin_start(16)
+        .margin_end(16)
+        .margin_bottom(4)
+        .build();
+
     let flowbox = gtk::FlowBox::builder()
         .max_children_per_line(6)
         .min_children_per_line(2)
@@ -25,19 +35,25 @@ pub fn new() -> gtk::Box {
         .homogeneous(true)
         .column_spacing(12)
         .row_spacing(12)
-        .margin_top(24)
+        .margin_top(12)
         .margin_bottom(24)
         .margin_start(12)
         .margin_end(12)
         .build();
 
-    for info in manager.all_launchers() {
-        let icon_path = manager.cached_icon_path(&info);
-        let card = create_launcher_card(info, icon_path);
-        flowbox.append(&card);
-    }
+    let fb = flowbox.clone();
+    let se = search_entry.clone();
+    search_entry.connect_search_changed(move |entry| {
+        let text = entry.text().to_string();
+        populate_flowbox(&fb, &text, &se);
+    });
 
-    clamp.set_child(Some(&flowbox));
+    populate_flowbox(&flowbox, "", &search_entry);
+
+    page_box.append(&search_entry);
+    page_box.append(&flowbox);
+
+    clamp.set_child(Some(&page_box));
     scroll.set_child(Some(&clamp));
 
     let container = gtk::Box::builder()
@@ -47,8 +63,43 @@ pub fn new() -> gtk::Box {
     container
 }
 
-fn create_launcher_card(info: LauncherInfo, icon_path: Option<PathBuf>) -> gtk::Box {
-    let installed = LauncherManager::new().is_installed(&info.id);
+fn populate_flowbox(flowbox: &gtk::FlowBox, filter: &str, search_entry: &gtk::SearchEntry) {
+    while let Some(child) = flowbox.first_child() {
+        flowbox.remove(&child);
+    }
+
+    let manager = LauncherManager::new();
+    let flowbox_ref = flowbox.clone();
+    let filter_lower = filter.trim().to_lowercase();
+    let search_ref = search_entry.clone();
+
+    for info in manager.all_launchers() {
+        if !filter_lower.is_empty() {
+            let name_matches = info.name.to_lowercase().contains(&filter_lower);
+            let desc_matches = info.description.to_lowercase().contains(&filter_lower);
+            if !name_matches && !desc_matches {
+                continue;
+            }
+        }
+
+        let installed = manager.is_installed(&info.id);
+        let fb = flowbox_ref.clone();
+        let se = search_ref.clone();
+        let card = create_launcher_card(info, installed, move || {
+            let text = se.text().to_string();
+            populate_flowbox(&fb, &text, &se);
+        });
+        flowbox.append(&card);
+    }
+}
+
+fn create_launcher_card<F: Fn() + Clone + 'static>(
+    info: LauncherInfo,
+    installed: bool,
+    on_refresh: F,
+) -> gtk::Box {
+    let manager = LauncherManager::new();
+    let icon_path = manager.existing_icon_path(&info.id);
 
     let icon: gtk::Image = if let Some(ref path) = icon_path {
         gtk::Image::builder()
@@ -56,10 +107,29 @@ fn create_launcher_card(info: LauncherInfo, icon_path: Option<PathBuf>) -> gtk::
             .pixel_size(64)
             .build()
     } else {
-        gtk::Image::builder()
+        let img = gtk::Image::builder()
             .icon_name("applications-games")
             .pixel_size(64)
-            .build()
+            .build();
+        let (tx, rx) = std::sync::mpsc::channel::<std::path::PathBuf>();
+        let id = info.id.clone();
+        let icon_url = info.icon_url.to_string();
+        std::thread::spawn(move || {
+            let mgr = LauncherManager::new();
+            if let Some(path) = mgr.download_icon_by_url(&id, &icon_url) {
+                let _ = tx.send(path);
+            }
+        });
+        let img_clone = img.clone();
+        glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            if let Ok(path) = rx.try_recv() {
+                img_clone.set_from_file(Some(&path));
+                glib::ControlFlow::Break
+            } else {
+                glib::ControlFlow::Continue
+            }
+        });
+        img
     };
 
     let name_label = gtk::Label::builder()
@@ -103,7 +173,11 @@ fn create_launcher_card(info: LauncherInfo, icon_path: Option<PathBuf>) -> gtk::
             child.stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null());
             apply_locale(&mut child);
-            child.spawn().ok();
+            if let Ok(mut c) = child.spawn() {
+                std::thread::spawn(move || {
+                    let _ = c.wait();
+                });
+            }
         });
         action_box.append(&launch_btn);
 
@@ -113,10 +187,21 @@ fn create_launcher_card(info: LauncherInfo, icon_path: Option<PathBuf>) -> gtk::
             .build();
         let remove_cmd = crate::modules::pacman::PacmanManager::remove_command(&pkg_list);
         let remove_title = info.name.to_string();
+        let refresh = on_refresh.clone();
         remove_btn.connect_clicked(move |btn| {
             if let Some(root) = btn.root() {
                 if let Some(window) = root.downcast_ref::<gtk::Window>() {
-                    terminal::show(window, &remove_title, &remove_cmd, None);
+                    let ref_cb = refresh.clone();
+                    terminal::show(
+                        window,
+                        &remove_title,
+                        &remove_cmd,
+                        Some(Box::new(move |success| {
+                            if success {
+                                ref_cb();
+                            }
+                        })),
+                    );
                 }
             }
         });
@@ -128,10 +213,21 @@ fn create_launcher_card(info: LauncherInfo, icon_path: Option<PathBuf>) -> gtk::
             .build();
         let install_cmd = crate::modules::pacman::PacmanManager::install_command(&pkg_list);
         let install_title = info.name.to_string();
+        let refresh = on_refresh.clone();
         install_btn.connect_clicked(move |btn| {
             if let Some(root) = btn.root() {
                 if let Some(window) = root.downcast_ref::<gtk::Window>() {
-                    terminal::show(window, &install_title, &install_cmd, None);
+                    let ref_cb = refresh.clone();
+                    terminal::show(
+                        window,
+                        &install_title,
+                        &install_cmd,
+                        Some(Box::new(move |success| {
+                            if success {
+                                ref_cb();
+                            }
+                        })),
+                    );
                 }
             }
         });

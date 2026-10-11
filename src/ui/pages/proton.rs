@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc;
 
 use adw::prelude::*;
+use gtk::glib;
 
 use crate::modules::proton_manager::{CompatTool, ProtonManager, ReleaseInfo};
 
@@ -66,7 +66,7 @@ pub fn new() -> gtk::Box {
         .build();
     container.append(&toast_overlay);
 
-    let (tx, rx) = mpsc::channel::<(usize, Vec<ReleaseInfo>)>();
+    let (tx, rx) = std::sync::mpsc::channel::<(usize, Vec<ReleaseInfo>)>();
     let tools_for_thread = tools.clone();
 
     for (i, tool) in tools_for_thread.iter().enumerate() {
@@ -74,9 +74,10 @@ pub fn new() -> gtk::Box {
         let id = tool.id;
         let tools_ref = tools_for_thread.clone();
         std::thread::spawn(move || {
-            let t = tools_ref.iter().find(|t| t.id == id).unwrap();
-            let releases = ProtonManager::list_available_releases(t);
-            let _ = tx.send((i, releases));
+            if let Some(t) = tools_ref.iter().find(|t| t.id == id) {
+                let releases = ProtonManager::list_available_releases(t);
+                let _ = tx.send((i, releases));
+            }
         });
     }
     drop(tx);
@@ -95,7 +96,6 @@ pub fn new() -> gtk::Box {
         }
 
         if *received_count.borrow() >= tool_count {
-            // Remove loading page
             while let Some(child) = content_loading.first_child() {
                 content_loading.remove(&child);
             }
@@ -298,7 +298,7 @@ fn build_page(
             let rels = &s.all_releases;
             let tool_idx = s.selected_tool;
             if let Some(release) = rels[tool_idx].get(idx) {
-                ne_sel.set_subtitle(&format!("{}", release.version));
+                ne_sel.set_subtitle(&release.version);
                 if release.body.is_empty() {
                     nl_sel.set_label("No release notes available.");
                 } else {
@@ -311,6 +311,12 @@ fn build_page(
     // --- Install button ---
     let state_i = state.clone();
     let toast_i = toast_overlay.clone();
+    let vl_inst = version_list.clone();
+    let il_inst = installed_list.clone();
+    let nl_inst = notes_label.clone();
+    let ne_inst = notes_expander.clone();
+    let dr_inst = desc_row.clone();
+    let rb_inst = remove_btn.clone();
     install_btn.connect_clicked(move |btn| {
         let s = state_i.borrow();
         let tool_idx = s.selected_tool;
@@ -346,7 +352,24 @@ fn build_page(
                     );
                     let tool_name = s.tools[tool_idx].name;
                     let title = format!("Install {} — {}", tool_name, release.version);
-                    crate::ui::dialogs::terminal::show(window, &title, &cmd, None);
+                    let state_cb = state_i.clone();
+                    let vl_cb = vl_inst.clone();
+                    let il_cb = il_inst.clone();
+                    let nl_cb = nl_inst.clone();
+                    let ne_cb = ne_inst.clone();
+                    let dr_cb = dr_inst.clone();
+                    let rb_cb = rb_inst.clone();
+                    crate::ui::dialogs::terminal::show(
+                        window,
+                        &title,
+                        &cmd,
+                        Some(Box::new(move |success| {
+                            if success {
+                                let idx = state_cb.borrow().selected_tool;
+                                populate_view(&state_cb, &vl_cb, &il_cb, &nl_cb, &ne_cb, &dr_cb, &rb_cb, idx);
+                            }
+                        })),
+                    );
                 }
             }
         } else {
@@ -381,7 +404,7 @@ fn build_page(
     let toast_r = toast_overlay.clone();
     refresh_btn.connect_clicked(move |btn| {
         btn.set_sensitive(false);
-        let (tx, rx) = mpsc::channel::<(usize, Vec<ReleaseInfo>)>();
+        let (tx, rx) = std::sync::mpsc::channel::<(usize, Vec<ReleaseInfo>)>();
         let tools_ref = state_r.borrow().tools.clone();
         let tool_count = tools_ref.len();
 
@@ -390,9 +413,10 @@ fn build_page(
             let id = tool.id;
             let t_ref = tools_ref.clone();
             std::thread::spawn(move || {
-                let t = t_ref.iter().find(|t| t.id == id).unwrap();
-                let rels = ProtonManager::list_available_releases(t);
-                let _ = tx.send((i, rels));
+                if let Some(t) = t_ref.iter().find(|t| t.id == id) {
+                    let rels = ProtonManager::list_available_releases(t);
+                    let _ = tx.send((i, rels));
+                }
             });
         }
         drop(tx);
@@ -428,6 +452,7 @@ fn build_page(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn populate_view(
     state: &Rc<RefCell<UiState>>,
     version_list: &gtk::ListBox,
@@ -507,12 +532,36 @@ fn populate_view(
                 .tooltip_text("Remove this version")
                 .build();
             let path = v.path.clone();
+            let state_del = state.clone();
+            let vl_del = version_list.clone();
+            let il_del = installed_list.clone();
+            let nl_del = notes_label.clone();
+            let ne_del = notes_expander.clone();
+            let dr_del = desc_row.clone();
+            let rb_del = remove_btn.clone();
             del_btn.connect_clicked(move |btn| {
                 if let Some(root) = btn.root() {
                     if let Some(window) = root.downcast_ref::<gtk::Window>() {
                         let cmd = format!("rm -rf '{}'", shell_escape(&path.to_string_lossy()));
                         let title = format!("Remove {}", path.display());
-                        crate::ui::dialogs::terminal::show(window, &title, &cmd, None);
+                        let state_cb = state_del.clone();
+                        let vl_cb = vl_del.clone();
+                        let il_cb = il_del.clone();
+                        let nl_cb = nl_del.clone();
+                        let ne_cb = ne_del.clone();
+                        let dr_cb = dr_del.clone();
+                        let rb_cb = rb_del.clone();
+                        crate::ui::dialogs::terminal::show(
+                            window,
+                            &title,
+                            &cmd,
+                            Some(Box::new(move |success| {
+                                if success {
+                                    let idx = state_cb.borrow().selected_tool;
+                                    populate_view(&state_cb, &vl_cb, &il_cb, &nl_cb, &ne_cb, &dr_cb, &rb_cb, idx);
+                                }
+                            })),
+                        );
                     }
                 }
             });
@@ -523,7 +572,7 @@ fn populate_view(
 
     // Show first version release notes
     if let Some(first) = releases.first() {
-        notes_expander.set_subtitle(&format!("{}", first.version));
+        notes_expander.set_subtitle(&first.version);
         if first.body.is_empty() {
             notes_label.set_label("No release notes available.");
         } else {
@@ -534,3 +583,4 @@ fn populate_view(
         notes_label.set_label("Select a version to view its release notes.");
     }
 }
+

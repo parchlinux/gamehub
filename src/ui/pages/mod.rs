@@ -1,3 +1,4 @@
+pub mod compat;
 pub mod dashboard;
 pub mod launchers;
 pub mod proton;

@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::time::Duration;
 
 use adw::prelude::*;
 use gtk::glib;
@@ -60,7 +59,11 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
     let banner_weak = banner.downgrade();
     glib::timeout_add_seconds_local(5, move || {
         if let Some(banner) = banner_weak.upgrade() {
-            banner.set_revealed(false);
+            if banner.is_revealed() {
+                banner.set_revealed(false);
+                let cfg = AppConfig::new();
+                cfg.set_welcome_banner_dismissed(true);
+            }
         }
         glib::ControlFlow::Break
     });
@@ -72,6 +75,28 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
         .title("System Status")
         .description("Current gaming environment status")
         .build();
+
+    let kernel_row = adw::ActionRow::builder()
+        .title("Linux Kernel")
+        .subtitle("Detecting...")
+        .build();
+    kernel_row.add_prefix(&gtk::Image::from_icon_name("computer"));
+    let kernel_btn = gtk::Button::builder()
+        .label("Kernel Manager")
+        .css_classes(["flat", "compact"])
+        .valign(gtk::Align::Center)
+        .tooltip_text("Open Parch Kernel Manager")
+        .build();
+    kernel_btn.connect_clicked(|_| {
+        let mut child = std::process::Command::new("parch-kernel-manager");
+        child.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        apply_locale(&mut child);
+        if let Ok(mut c) = child.spawn() {
+            std::thread::spawn(move || { let _ = c.wait(); });
+        }
+    });
+    kernel_row.add_suffix(&kernel_btn);
+    status_group.add(&kernel_row);
 
     let gpu_row = adw::ActionRow::builder()
         .title("Graphics Card")
@@ -85,6 +110,21 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
         .subtitle("Detecting...")
         .build();
     driver_row.add_prefix(&gtk::Image::from_icon_name("preferences-system"));
+    let driver_btn = gtk::Button::builder()
+        .label("Driver Manager")
+        .css_classes(["flat", "compact"])
+        .valign(gtk::Align::Center)
+        .tooltip_text("Open Parch Driver Manager")
+        .build();
+    driver_btn.connect_clicked(|_| {
+        let mut child = std::process::Command::new("parch-driver-manager");
+        child.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        apply_locale(&mut child);
+        if let Ok(mut c) = child.spawn() {
+            std::thread::spawn(move || { let _ = c.wait(); });
+        }
+    });
+    driver_row.add_suffix(&driver_btn);
     status_group.add(&driver_row);
 
     let vulkan_row = adw::ActionRow::builder()
@@ -110,7 +150,7 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
 
     let install_row = adw::ActionRow::builder()
         .title("Install Game Launchers")
-        .subtitle("Steam, Lutris, Heroic and more")
+        .subtitle("Steam, Lutris, Heroic, RetroArch, Prism and more")
         .activatable(true)
         .build();
     install_row.add_prefix(&gtk::Image::from_icon_name("list-add"));
@@ -123,24 +163,58 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
     }
     quick_group.add(&install_row);
 
-    let chaotic_nav_row = adw::ActionRow::builder()
-        .title("Setup Chaotic AUR")
-        .subtitle("Enable additional gaming packages")
+    let protondb_row = adw::ActionRow::builder()
+        .title("ProtonDB Compatibility Check")
+        .subtitle("Check game compatibility and verify system requirements")
         .activatable(true)
         .build();
-    chaotic_nav_row.add_prefix(&gtk::Image::from_icon_name("package"));
-    chaotic_nav_row.add_suffix(&gtk::Image::from_icon_name("go-next"));
+    protondb_row.add_prefix(&gtk::Image::from_icon_name("emblem-ok-symbolic"));
+    protondb_row.add_suffix(&gtk::Image::from_icon_name("go-next"));
     if let Some(ref vs) = view_stack {
-        let vs_chaotic = vs.clone();
-        chaotic_nav_row.connect_activated(move |_| {
-            vs_chaotic.set_visible_child_name("tools");
+        let vs_proton = vs.clone();
+        protondb_row.connect_activated(move |_| {
+            vs_proton.set_visible_child_name("proton");
         });
     }
-    quick_group.add(&chaotic_nav_row);
+    quick_group.add(&protondb_row);
+
+    let kernel_quick_row = adw::ActionRow::builder()
+        .title("Parch Kernel Manager")
+        .subtitle("Install and switch gaming kernels (Zen, CachyOS)")
+        .activatable(true)
+        .build();
+    kernel_quick_row.add_prefix(&gtk::Image::from_icon_name("computer"));
+    kernel_quick_row.add_suffix(&gtk::Image::from_icon_name("go-next"));
+    kernel_quick_row.connect_activated(move |_| {
+        let mut child = std::process::Command::new("parch-kernel-manager");
+        child.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        apply_locale(&mut child);
+        if let Ok(mut c) = child.spawn() {
+            std::thread::spawn(move || { let _ = c.wait(); });
+        }
+    });
+    quick_group.add(&kernel_quick_row);
+
+    let driver_quick_row = adw::ActionRow::builder()
+        .title("Parch Driver Manager")
+        .subtitle("Detect and configure GPU drivers (RADV, AMDVLK, NVIDIA)")
+        .activatable(true)
+        .build();
+    driver_quick_row.add_prefix(&gtk::Image::from_icon_name("preferences-system"));
+    driver_quick_row.add_suffix(&gtk::Image::from_icon_name("go-next"));
+    driver_quick_row.connect_activated(move |_| {
+        let mut child = std::process::Command::new("parch-driver-manager");
+        child.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        apply_locale(&mut child);
+        if let Ok(mut c) = child.spawn() {
+            std::thread::spawn(move || { let _ = c.wait(); });
+        }
+    });
+    quick_group.add(&driver_quick_row);
 
     let optimize_row = adw::ActionRow::builder()
-        .title("Gaming Optimizations")
-        .subtitle("Apply recommended gaming tweaks")
+        .title("Gaming Optimizations and Tools")
+        .subtitle("Configure GameMode, MangoHud, CoreCtrl, and tools")
         .activatable(true)
         .build();
     optimize_row.add_prefix(&gtk::Image::from_icon_name("emblem-system"));
@@ -187,89 +261,94 @@ pub fn new(view_stack: Option<adw::ViewStack>) -> gtk::Box {
     std::thread::spawn(move || {
         let status = system_info.gather_all();
         let launchers = system_info.get_installed_launchers();
-        tx.send((status, launchers)).ok();
+        let _ = tx.send((status, launchers));
     });
 
-    glib::timeout_add_local(Duration::from_millis(100), move || {
-        if let Ok((status, launchers)) = rx.try_recv() {
-            gpu_row.set_subtitle(&status.gpu);
-            driver_row.set_subtitle(&status.driver);
+    glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+        let Ok((status, launchers)) = rx.try_recv() else {
+            return glib::ControlFlow::Continue;
+        };
+        kernel_row.set_subtitle(&status.kernel);
+        gpu_row.set_subtitle(&status.gpu);
+        driver_row.set_subtitle(&status.driver);
 
-            if status.vulkan_supported {
-                vulkan_row.set_subtitle("Available");
-            } else {
-                vulkan_row.set_subtitle("Not detected");
-            }
-
-            if status.chaotic_aur_installed {
-                chaotic_row.set_subtitle("Installed");
-            } else {
-                chaotic_row.set_subtitle("Not installed");
-            }
-
-            launchers_status.set_visible(false);
-            launchers_box.set_visible(true);
-
-            if launchers.is_empty() {
-                let empty_row = adw::ActionRow::builder()
-                    .title("No launchers installed")
-                    .subtitle("Install some from the Launchers page")
-                    .build();
-                launchers_box.append(&empty_row);
-            } else {
-                for launcher in launchers {
-                    let name = launcher.name.unwrap_or_else(|| "Unknown".to_string());
-                    let cmd = launcher.command.clone();
-
-                    let prefix_icon: gtk::Widget = if let Some(path) = cached_icon_path(&launcher.id) {
-                        gtk::Image::from_file(path).upcast()
-                    } else {
-                        gtk::Image::from_icon_name("applications-games").upcast()
-                    };
-
-                    let row = adw::ActionRow::builder()
-                        .title(&name)
-                        .subtitle("Click to launch")
-                        .activatable(true)
-                        .build();
-                    row.add_prefix(&prefix_icon);
-
-                    let launch_btn = gtk::Button::builder()
-                        .label("Launch")
-                        .css_classes(["suggested-action", "compact"])
-                        .valign(gtk::Align::Center)
-                        .build();
-                    let cmd_btn = cmd.clone();
-                    let toast_click = toast_overlay_clone.clone();
-                    launch_btn.connect_clicked(move |_| {
-                        let mut child = std::process::Command::new(&cmd_btn);
-                        child.stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null());
-                        apply_locale(&mut child);
-                        child.spawn().ok();
-                        let t = adw::Toast::new(&format!("Launching {}...", cmd_btn));
-                        toast_click.add_toast(t);
-                    });
-                    row.add_suffix(&launch_btn);
-
-                    let toast_act = toast_overlay_clone.clone();
-                    row.connect_activated(move |_| {
-                        let mut child = std::process::Command::new(&cmd);
-                        child.stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null());
-                        apply_locale(&mut child);
-                        child.spawn().ok();
-                        let t = adw::Toast::new(&format!("Launching {}...", cmd));
-                        toast_act.add_toast(t);
-                    });
-                    launchers_box.append(&row);
-                }
-            }
-
-            glib::ControlFlow::Break
+        if status.vulkan_supported {
+            vulkan_row.set_subtitle("Available");
         } else {
-            glib::ControlFlow::Continue
+            vulkan_row.set_subtitle("Not detected");
         }
+
+        if status.chaotic_aur_installed {
+            chaotic_row.set_subtitle("Installed");
+        } else {
+            chaotic_row.set_subtitle("Not installed");
+        }
+
+        launchers_status.set_visible(false);
+        launchers_box.set_visible(true);
+
+        if launchers.is_empty() {
+            let empty_row = adw::ActionRow::builder()
+                .title("No launchers installed")
+                .subtitle("Install some from the Launchers page")
+                .build();
+            launchers_box.append(&empty_row);
+        } else {
+            for launcher in launchers {
+                let name = launcher.name.unwrap_or_else(|| "Unknown".to_string());
+                let cmd = launcher.command.clone();
+
+                let prefix_icon: gtk::Widget = if let Some(path) = cached_icon_path(&launcher.id) {
+                    gtk::Image::from_file(path).upcast()
+                } else {
+                    gtk::Image::from_icon_name("applications-games").upcast()
+                };
+
+                let row = adw::ActionRow::builder()
+                    .title(&name)
+                    .subtitle("Click to launch")
+                    .activatable(true)
+                    .build();
+                row.add_prefix(&prefix_icon);
+
+                let launch_btn = gtk::Button::builder()
+                    .label("Launch")
+                    .css_classes(["suggested-action", "compact"])
+                    .valign(gtk::Align::Center)
+                    .build();
+                let cmd_btn = cmd.clone();
+                let toast_click = toast_overlay_clone.clone();
+                launch_btn.connect_clicked(move |_| {
+                    let mut child = std::process::Command::new(&cmd_btn);
+                    child.stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null());
+                    apply_locale(&mut child);
+                    if let Ok(mut c) = child.spawn() {
+                        std::thread::spawn(move || { let _ = c.wait(); });
+                    }
+                    let t = adw::Toast::new(&format!("Launching {}...", cmd_btn));
+                    toast_click.add_toast(t);
+                });
+                row.add_suffix(&launch_btn);
+
+                let toast_act = toast_overlay_clone.clone();
+                let cmd_row = cmd.clone();
+                row.connect_activated(move |_| {
+                    let mut child = std::process::Command::new(&cmd_row);
+                    child.stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null());
+                    apply_locale(&mut child);
+                    if let Ok(mut c) = child.spawn() {
+                        std::thread::spawn(move || { let _ = c.wait(); });
+                    }
+                    let t = adw::Toast::new(&format!("Launching {}...", cmd_row));
+                    toast_act.add_toast(t);
+                });
+                launchers_box.append(&row);
+            }
+        }
+
+        glib::ControlFlow::Break
     });
 
     let container = gtk::Box::builder()

@@ -4,11 +4,16 @@ use std::process::{Command, Stdio};
 
 use crate::modules::launcher_manager::apply_locale;
 
+enum TermMsg {
+    Output(String),
+    Done(bool),
+}
+
 pub fn show(
     parent: &gtk::Window,
     title: &str,
     command: &str,
-    mut on_complete: Option<Box<dyn FnOnce(bool) + 'static>>,
+    on_complete: Option<Box<dyn FnOnce(bool) + 'static>>,
 ) {
     let dialog = adw::Window::builder()
         .transient_for(parent)
@@ -88,8 +93,7 @@ pub fn show(
     spinner.start();
 
     // Use channel for sending output lines from thread
-    let (line_tx, line_rx) = std::sync::mpsc::channel::<String>();
-    let (done_tx, done_rx) = std::sync::mpsc::channel::<bool>();
+    let (tx, rx) = std::sync::mpsc::channel::<TermMsg>();
 
     let cmd = command.to_string();
 
@@ -108,19 +112,19 @@ pub fn show(
             match cmd.spawn() {
                 Ok(c) => c,
                 Err(e) => {
-                    let _ = line_tx.send(format!("Error: {}", e));
-                    let _ = done_tx.send(false);
+                    let _ = tx.send(TermMsg::Output(format!("Error: {}\n", e)));
+                    let _ = tx.send(TermMsg::Done(false));
                     return;
                 }
             }
         };
 
         if let Some(stdout) = child.stdout.take() {
-            let tx = line_tx.clone();
+            let tx = tx.clone();
             std::thread::spawn(move || {
                 let reader = std::io::BufReader::new(stdout);
                 for line in reader.lines().map_while(|l| l.ok()) {
-                    if tx.send(format!("{}\n", line)).is_err() {
+                    if tx.send(TermMsg::Output(format!("{}\n", line))).is_err() {
                         break;
                     }
                 }
@@ -128,11 +132,11 @@ pub fn show(
         }
 
         if let Some(stderr) = child.stderr.take() {
-            let tx = line_tx.clone();
+            let tx = tx.clone();
             std::thread::spawn(move || {
                 let reader = std::io::BufReader::new(stderr);
                 for line in reader.lines().map_while(|l| l.ok()) {
-                    if tx.send(format!("{}\n", line)).is_err() {
+                    if tx.send(TermMsg::Output(format!("{}\n", line))).is_err() {
                         break;
                     }
                 }
@@ -146,39 +150,41 @@ pub fn show(
             .map(|s| s.success())
             .unwrap_or(false);
 
-        let _ = done_tx.send(success);
+        let _ = tx.send(TermMsg::Done(success));
     });
 
     // Poll for output updates on main thread
     let buffer = text_view.buffer();
-    let status_clone = status_label.clone();
-    let spinner_clone = spinner.clone();
-    let close_clone = close_btn.clone();
+    let text_view_scroll = text_view.clone();
+    let mut on_complete = on_complete;
 
     glib::idle_add_local(move || {
-        // Drain available output lines
-        while let Ok(line) = line_rx.try_recv() {
-            let mut end = buffer.end_iter();
-            buffer.insert(&mut end, &line);
-        }
+        // Drain available output
+        while let Ok(msg) = rx.try_recv() {
+            match msg {
+                TermMsg::Output(line) => {
+                    let mut end = buffer.end_iter();
+                    buffer.insert(&mut end, &line);
+                    // Auto-scroll to the latest output
+                    text_view_scroll.scroll_to_iter(&mut buffer.end_iter(), 0.0, false, 0.0, 0.0);
+                }
+                TermMsg::Done(success) => {
+                    spinner.stop();
+                    if success {
+                        status_label.set_label("\u{2713} Command completed successfully");
+                    } else {
+                        status_label.set_label("\u{2717} Command failed");
+                    }
+                    close_btn.set_sensitive(true);
 
-        // Check if done
-        if let Ok(success) = done_rx.try_recv() {
-            spinner_clone.stop();
-            if success {
-                status_clone.set_label("✓ Command completed successfully");
-            } else {
-                status_clone.set_label("✗ Command failed");
+                    if let Some(cb) = on_complete.take() {
+                        cb(success);
+                    }
+
+                    return glib::ControlFlow::Break;
+                }
             }
-            close_clone.set_sensitive(true);
-
-            if let Some(cb) = on_complete.take() {
-                cb(success);
-            }
-
-            glib::ControlFlow::Break
-        } else {
-            glib::ControlFlow::Continue
         }
+        glib::ControlFlow::Continue
     });
 }

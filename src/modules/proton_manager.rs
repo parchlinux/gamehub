@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 
 #[derive(Clone)]
 pub struct CompatTool {
@@ -8,6 +9,7 @@ pub struct CompatTool {
     pub repo: &'static str,
     pub asset_filter: &'static str,
     pub arch_filter: Option<&'static str>,
+    #[allow(dead_code)]
     pub install_subdir: &'static str,
     pub match_fn: fn(&str) -> bool,
 }
@@ -28,6 +30,7 @@ pub struct InstalledVersion {
 pub struct ProtonManager;
 
 impl ProtonManager {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self
     }
@@ -106,6 +109,7 @@ impl ProtonManager {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn lutris_wine_dirs() -> Vec<PathBuf> {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
         let candidates = vec![
@@ -118,24 +122,86 @@ impl ProtonManager {
             .collect()
     }
 
-    pub fn list_available_releases(tool: &CompatTool) -> Vec<ReleaseInfo> {
-        let url = format!("https://api.github.com/repos/{}/releases?per_page=30", tool.repo);
-        let output = std::process::Command::new("curl")
-            .args([
-                "-sSL",
-                "-A",
-                "Mozilla/5.0 (X11; Linux x86_64) gamehub",
-                "--max-time",
-                "15",
-                &url,
-            ])
-            .output()
-            .ok();
+    fn cache_dir() -> PathBuf {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let dir = PathBuf::from(home).join(".cache/parch-gamehub/github_releases");
+        let _ = std::fs::create_dir_all(&dir);
+        dir
+    }
 
-        let body = match output {
-            Some(o) => String::from_utf8_lossy(&o.stdout).to_string(),
-            _ => return vec![],
+    fn read_cached_releases(repo: &str, max_age: Option<Duration>) -> Option<String> {
+        let safe_name = repo.replace('/', "_");
+        let path = Self::cache_dir().join(format!("{}.json", safe_name));
+        if let Ok(meta) = std::fs::metadata(&path) {
+            if let Some(ttl) = max_age {
+                if let Ok(mtime) = meta.modified() {
+                    if let Ok(age) = SystemTime::now().duration_since(mtime) {
+                        if age > ttl {
+                            return None;
+                        }
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            }
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if content.trim_start().starts_with('[') {
+                    return Some(content);
+                }
+            }
+        }
+        None
+    }
+
+    fn write_cached_releases(repo: &str, data: &str) {
+        let safe_name = repo.replace('/', "_");
+        let path = Self::cache_dir().join(format!("{}.json", safe_name));
+        let _ = std::fs::write(path, data);
+    }
+
+    pub fn list_available_releases(tool: &CompatTool) -> Vec<ReleaseInfo> {
+        // 1. Try reading fresh cache (1 hour TTL)
+        let body = if let Some(cached) = Self::read_cached_releases(tool.repo, Some(Duration::from_secs(3600))) {
+            cached
+        } else {
+            // 2. Fetch from GitHub API via native ureq
+            let url = format!("https://api.github.com/repos/{}/releases?per_page=30", tool.repo);
+            let mut req = ureq::get(&url)
+                .set("User-Agent", "ParchGameHub/0.2.0 (+https://github.com/parchlinux)")
+                .timeout(Duration::from_secs(12));
+
+            // Optional token support to avoid unauthenticated rate limits if configured
+            if let Ok(token) = std::env::var("GITHUB_TOKEN").or_else(|_| std::env::var("GH_TOKEN")) {
+                if !token.is_empty() {
+                    req = req.set("Authorization", &format!("Bearer {}", token));
+                }
+            }
+
+            match req.call() {
+                Ok(resp) if resp.status() == 200 => {
+                    if let Ok(text) = resp.into_string() {
+                        if text.trim_start().starts_with('[') {
+                            Self::write_cached_releases(tool.repo, &text);
+                            text
+                        } else {
+                            Self::read_cached_releases(tool.repo, None).unwrap_or_default()
+                        }
+                    } else {
+                        Self::read_cached_releases(tool.repo, None).unwrap_or_default()
+                    }
+                }
+                _ => {
+                    // Fallback to stale cache on network error, 403 rate limit, or 429
+                    Self::read_cached_releases(tool.repo, None).unwrap_or_default()
+                }
+            }
         };
+
+        if body.is_empty() {
+            return vec![];
+        }
 
         let releases: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap_or_default();
         let mut result = Vec::new();
@@ -170,14 +236,6 @@ impl ProtonManager {
                     });
                     break;
                 }
-            }
-        }
-
-        if result.is_empty() && !body.is_empty() {
-            if body.contains("API rate limit") || body.contains("rate limit") {
-                eprintln!("GitHub API rate limit exceeded: {}", body);
-            } else {
-                eprintln!("No releases parsed. Response: {}", body);
             }
         }
 
@@ -233,6 +291,7 @@ impl ProtonManager {
         result
     }
 
+    #[allow(dead_code)]
     pub fn install_version(
         tool: &CompatTool,
         release: &ReleaseInfo,
@@ -252,7 +311,10 @@ impl ProtonManager {
 
         std::fs::create_dir_all(&install_base).map_err(|e| e.to_string())?;
 
-        let tmp_dir = PathBuf::from("/tmp/gamehub-proton");
+        let tmp_dir = std::env::var("XDG_RUNTIME_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(&home).join(".cache"))
+            .join("gamehub-proton");
         std::fs::create_dir_all(&tmp_dir).ok();
         let archive_path = tmp_dir.join(&release.asset_name);
 
@@ -307,6 +369,7 @@ impl ProtonManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn remove_version(path: &PathBuf) -> Result<String, String> {
         if path.exists() {
             std::fs::remove_dir_all(path).map_err(|e| e.to_string())?;

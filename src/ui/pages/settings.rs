@@ -119,7 +119,7 @@ pub fn new() -> gtk::Box {
             let cmd = if state {
                 "pkexec bash -c 'echo \"vm.max_map_count=2147483642\" > /etc/sysctl.d/99-gaming.conf && sysctl --system'"
             } else {
-                "pkexec rm -f /etc/sysctl.d/99-gaming.conf && sudo sysctl --system"
+                "pkexec bash -c 'rm -f /etc/sysctl.d/99-gaming.conf && sysctl --system'"
             };
             terminal::show(&window, "Kernel Parameters", cmd, None);
         }
@@ -143,7 +143,7 @@ pub fn new() -> gtk::Box {
         sync_config.set_esync_fsync(state);
         if let Some(window) = switch.root().and_then(|r| r.downcast_ref::<gtk::Window>().cloned()) {
             let cmd = if state {
-                "pkexec bash -c 'echo \"* hard nofile 1048576\" >> /etc/security/limits.d/99-esync.conf && echo \"* soft nofile 1048576\" >> /etc/security/limits.d/99-esync.conf'"
+                "pkexec bash -c 'printf \"* hard nofile 1048576\\n* soft nofile 1048576\\n\" > /etc/security/limits.d/99-esync.conf'"
             } else {
                 "pkexec rm -f /etc/security/limits.d/99-esync.conf"
             };
@@ -164,7 +164,7 @@ pub fn new() -> gtk::Box {
 
     let app_row = adw::ActionRow::builder()
         .title("Parch Linux Gamehub")
-        .subtitle("Version 0.1.1")
+        .subtitle(format!("Version {}", env!("CARGO_PKG_VERSION")))
         .build();
     app_row.add_prefix(&gtk::Image::from_icon_name("applications-games"));
     about_group.add(&app_row);

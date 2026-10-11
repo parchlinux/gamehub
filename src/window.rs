@@ -19,6 +19,10 @@ pub fn create(app: &adw::Application) -> adw::ApplicationWindow {
     let page = view_stack.add_titled(&proton, Some("proton"), "Proton");
     page.set_icon_name(Some("media-playback-start"));
 
+    let compat = pages::compat::new();
+    let page = view_stack.add_titled(&compat, Some("compatibility"), "Compatibility");
+    page.set_icon_name(Some("emblem-ok-symbolic"));
+
     let steam_session = pages::steam_session::new();
     let page = view_stack.add_titled(&steam_session, Some("steam-session"), "Steam Session");
     page.set_icon_name(Some("computer"));
@@ -33,6 +37,7 @@ pub fn create(app: &adw::Application) -> adw::ApplicationWindow {
 
     let view_switcher = adw::ViewSwitcher::builder()
         .stack(&view_stack)
+        .policy(adw::ViewSwitcherPolicy::Wide)
         .build();
 
     let header = adw::HeaderBar::builder()
@@ -50,11 +55,16 @@ pub fn create(app: &adw::Application) -> adw::ApplicationWindow {
     menu_button.set_menu_model(Some(&menu));
     header.pack_end(&menu_button);
 
+    let switcher_bar = adw::ViewSwitcherBar::builder()
+        .stack(&view_stack)
+        .build();
+
     let main_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .build();
     main_box.append(&header);
     main_box.append(&view_stack);
+    main_box.append(&switcher_bar);
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
@@ -63,6 +73,13 @@ pub fn create(app: &adw::Application) -> adw::ApplicationWindow {
         .title("Parch Linux Gamehub")
         .content(&main_box)
         .build();
+
+    if let Ok(cond) = adw::BreakpointCondition::parse("max-width: 720px") {
+        let breakpoint = adw::Breakpoint::new(cond);
+        breakpoint.add_setter(&view_switcher, "visible", Some(&false.to_value()));
+        breakpoint.add_setter(&switcher_bar, "reveal", Some(&true.to_value()));
+        window.add_breakpoint(breakpoint);
+    }
 
     let app_weak = app.downgrade();
     window.connect_close_request(move |_| {

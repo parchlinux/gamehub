@@ -4,6 +4,10 @@ use gtk::gio;
 use crate::window;
 
 pub fn run() {
+    let _ = adw::init();
+    let style_manager = adw::StyleManager::default();
+    style_manager.set_color_scheme(adw::ColorScheme::Default);
+
     let app = adw::Application::builder()
         .application_id("com.parchlinux.gamehub")
         .resource_base_path("/com/parchlinux/gamehub")
@@ -56,7 +60,7 @@ fn show_about(app: &adw::Application) {
     let about = adw::AboutDialog::builder()
         .application_name("Parch Linux Gamehub")
         .application_icon("com.parchlinux.gamehub")
-        .version("0.1.1")
+        .version(env!("CARGO_PKG_VERSION"))
         .developers(["Parch Linux"])
         .website("https://parchlinux.com")
         .copyright("© 2026 Parch Linux")
